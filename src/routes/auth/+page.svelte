@@ -28,39 +28,157 @@
 
 	let ldapUsername = '';
 
+	// 添加一个变量来控制是否使用wemol登录
+	let useWemol = true;  // 默认使用wemol登录
+
 	const querystringValue = (key) => {
 		const querystring = window.location.search;
 		const urlParams = new URLSearchParams(querystring);
 		return urlParams.get(key);
 	};
 
-	const setSessionUser = async (sessionUser) => {
+	const setSessionUser = async (sessionUser, isWemolUser = false) => {
 		if (sessionUser) {
-			console.log(sessionUser);
-			toast.success($i18n.t(`You're now logged in.`));
-			if (sessionUser.token) {
-				localStorage.token = sessionUser.token;
+			try {
+				if (isWemolUser) {
+					console.log('Setting wemol user:', sessionUser);
+					console.log('Current config:', $config);
+					
+					// 检查 wemol 用户的邮箱状态
+					if (!sessionUser.email) {
+						throw new Error($i18n.t(
+							'Your WeMol account email is not set or not activated. Please set and activate your email in WeMol platform before trying again.'
+						));
+					}
+					
+					// 先尝试登录
+					let openWebUIUser = await userSignIn(sessionUser.email, 'wemol_token').catch(() => null);
+					
+					if (!openWebUIUser) {
+						// 如果登录失败，尝试直接调用后端 API 创建用户
+						const response = await fetch(`${WEBUI_API_BASE_URL}/auths/signup`, {
+							method: 'POST',
+							headers: {
+								'Content-Type': 'application/json',
+								'X-Special-Auth': 'wemol-integration'  // 添加特殊头部标识 wemol 集成
+							},
+							body: JSON.stringify({
+								name: sessionUser.name,
+								email: sessionUser.email,
+								password: 'wemol_token',
+								profile_image: generateInitialsImage(sessionUser.name)
+							})
+						});
+
+						if (!response.ok) {
+							throw new Error($i18n.t('Failed to create user account. Please contact administrator.'));
+						}
+
+						openWebUIUser = await response.json();
+					}
+
+					// 使用 OpenWebUI 的 token
+					if (openWebUIUser.token) {
+						localStorage.token = openWebUIUser.token;
+					}
+
+					toast.success($i18n.t(`You're now logged in.`));
+					
+					// 设置用户信息
+					await user.set({
+						...openWebUIUser,
+						name: sessionUser.name,
+						email: sessionUser.email,
+						role: openWebUIUser.role || 'user',
+						status: 'active'
+					});
+
+					$socket?.emit('user-join', { auth: { token: openWebUIUser.token } });
+					
+					// 更新配置
+					await config.set(await getBackendConfig());
+
+					// 跳转到主页
+					const redirectPath = querystringValue('redirect') || (WEBUI_BASE_URL + '/');
+					goto(redirectPath);
+					return;
+				}
+
+				// 非 wemol 用户的原有逻辑
+				console.log(sessionUser);
+				toast.success($i18n.t(`You're now logged in.`));
+				if (sessionUser.token) {
+					localStorage.token = sessionUser.token;
+				}
+
+				$socket?.emit('user-join', { auth: { token: sessionUser.token } });
+				await user.set(sessionUser);
+				await config.set(await getBackendConfig());
+
+				const redirectPath = querystringValue('redirect') || (WEBUI_BASE_URL + '/');
+				goto(redirectPath);
+			} catch (error) {
+				console.error('SetSessionUser error:', error);
+				toast.error(`${error}`);
 			}
-
-			$socket.emit('user-join', { auth: { token: sessionUser.token } });
-			await user.set(sessionUser);
-			await config.set(await getBackendConfig());
-
-			const redirectPath = querystringValue('redirect') || (WEBUI_BASE_URL + '/');
-			goto(redirectPath);
 		}
 	};
 
 	const signInHandler = async () => {
-		const sessionUser = await userSignIn(email, password).catch((error) => {
+		try {
+			if (useWemol) {
+				console.log('Attempting WeMol login with:', { email });
+				const wemolResponse = await fetch('/api/user/login', {
+					method: 'POST',
+					credentials: 'include', 
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({
+						Name: email,
+						Passwd: password
+					})
+				});
+				
+				const wemolData = await wemolResponse.json();
+				console.log('WeMol login response:', wemolData);
+				
+				if (!wemolData.Error?.Value) {
+					const wemolUser = {
+						name: wemolData.Data.User.Name,
+						email: wemolData.Data.User.Email,
+						EmailStatus: wemolData.Data.User.EmailStatus,  // 添加邮箱状态
+						token: wemolData.Data.User.Token || ''
+					};
+					await setSessionUser(wemolUser, true);
+					return;
+				}
+				throw new Error(wemolData.Error.Value || $i18n.t('Invalid username or password'));
+			} else {
+				// 普通登录逻辑
+				if (!email.includes('@')) {
+					throw new Error($i18n.t('Please enter a valid email address'));
+				}
+				const sessionUser = await userSignIn(email, password).catch((error) => {
+					throw error;
+				});
+				await setSessionUser(sessionUser);
+			}
+		} catch (error) {
+			console.error('Login error:', error);
 			toast.error(`${error}`);
 			return null;
-		});
-
-		await setSessionUser(sessionUser);
+		}
 	};
 
 	const signUpHandler = async () => {
+		// 验证邮箱格式
+		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+		if (!emailRegex.test(email)) {
+			toast.error($i18n.t('Please enter a valid email address'));
+			return;
+		}
+
 		const sessionUser = await userSignUp(name, email, password, generateInitialsImage(name)).catch(
 			(error) => {
 				toast.error(`${error}`);
@@ -113,12 +231,50 @@
 		await setSessionUser(sessionUser);
 	};
 
+	async function checkWemolAuth() {
+		try {
+			const response = await fetch('/api/user/session_update?data=true', {
+				method: 'POST',
+				credentials: 'include',
+				headers: {
+					'Content-Type': 'application/json'
+				}
+			});
+			
+			const data = await response.json();
+			console.log('Wemol session check response:', data);
+			
+			if (!data.Error?.Value && data.Data?.User) {
+				const wemolUser = {
+					name: data.Data.User.Name,
+					email: data.Data.User.Email || '',
+					token: data.Data.User.Token || ''
+				};
+				
+				await setSessionUser(wemolUser, true);
+				return true;
+			}
+			return false;
+		} catch (error) {
+			console.error('Wemol auth check failed:', error);
+			return false;
+		}
+	}
+
 	let onboarding = false;
 
 	onMount(async () => {
 		if ($user !== undefined) {
 			await goto(WEBUI_BASE_URL + '/');
+			return;
 		}
+
+		// 检查wemol认证
+		const wemolAuthSuccess = await checkWemolAuth();
+		if (wemolAuthSuccess) {
+			return;
+		}
+
 		await checkOauthCallback();
 
 		loaded = true;
@@ -238,22 +394,37 @@
 												class="my-0.5 w-full text-sm outline-hidden bg-transparent"
 												autocomplete="username"
 												name="username"
-												placeholder={$i18n.t('Enter Your Username')}
+												placeholder={$i18n.t('Enter Your WeMol Account')}
 												required
 											/>
 										</div>
 									{:else}
 										<div class="mb-2">
-											<div class=" text-sm font-medium text-left mb-1">{$i18n.t('Email')}</div>
-											<input
-												bind:value={email}
-												type="email"
-												class="my-0.5 w-full text-sm outline-hidden bg-transparent"
-												autocomplete="email"
-												name="email"
-												placeholder={$i18n.t('Enter Your Email')}
-												required
-											/>
+											<div class="text-sm font-medium text-left mb-1">
+												{useWemol ? $i18n.t('WeMol Username') : $i18n.t('Email')}
+											</div>
+											<div class="relative">
+												<input
+													bind:value={email}
+													type="text"
+													class="my-0.5 w-full text-sm outline-hidden bg-transparent pr-24"
+													autocomplete={useWemol ? 'username' : 'email'}
+													name={useWemol ? 'username' : 'email'}
+													placeholder={useWemol ? $i18n.t('Enter Your WeMol Account') : $i18n.t('Enter Your Email')}
+													required
+												/>
+												<button
+													type="button"
+													class="absolute right-2 top-1/2 -translate-y-1/2 text-xs px-2 py-1 rounded-full 
+														   transition-colors duration-200 ease-in-out
+														   {useWemol ? 
+															 'bg-blue-500/10 text-blue-600 dark:text-blue-400' : 
+															 'bg-gray-500/10 text-gray-600 dark:text-gray-400'}"
+													on:click={() => useWemol = !useWemol}
+												>
+													{useWemol ? 'WeMol' : 'Email'}
+												</button>
+											</div>
 										</div>
 									{/if}
 

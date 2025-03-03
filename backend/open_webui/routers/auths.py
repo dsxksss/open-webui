@@ -4,6 +4,7 @@ import time
 import datetime
 import logging
 from aiohttp import ClientSession
+from datetime import timedelta
 
 from open_webui.models.auths import (
     AddUserForm,
@@ -422,117 +423,146 @@ async def signin(request: Request, response: Response, form_data: SigninForm):
 
 
 @router.post("/signup", response_model=SessionUserResponse)
-async def signup(request: Request, response: Response, form_data: SignupForm):
-
-    if WEBUI_AUTH:
-        if (
-            not request.app.state.config.ENABLE_SIGNUP
-            or not request.app.state.config.ENABLE_LOGIN_FORM
-        ):
-            raise HTTPException(
-                status.HTTP_403_FORBIDDEN, detail=ERROR_MESSAGES.ACCESS_PROHIBITED
-            )
-    else:
-        if Users.get_num_users() != 0:
-            raise HTTPException(
-                status.HTTP_403_FORBIDDEN, detail=ERROR_MESSAGES.ACCESS_PROHIBITED
-            )
-
-    user_count = Users.get_num_users()
-    if request.app.state.USER_COUNT and user_count >= request.app.state.USER_COUNT:
+async def signup(
+    request: Request,
+    response: Response,
+    form_data: SignupForm,
+):
+    # 检查是否是 wemol 集成请求
+    is_wemol_integration = request.headers.get('X-Special-Auth') == 'wemol-integration'
+    
+    # 如果是普通请求且注册被禁用，返回错误
+    if not is_wemol_integration and not request.app.state.config.ENABLE_SIGNUP:
         raise HTTPException(
-            status.HTTP_403_FORBIDDEN, detail=ERROR_MESSAGES.ACCESS_PROHIBITED
+            status_code=403,
+            detail="You do not have permission to access this resource. Please contact your administrator for assistance.",
         )
 
-    if not validate_email_format(form_data.email.lower()):
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST, detail=ERROR_MESSAGES.INVALID_EMAIL_FORMAT
-        )
-
-    if Users.get_user_by_email(form_data.email.lower()):
-        raise HTTPException(400, detail=ERROR_MESSAGES.EMAIL_TAKEN)
-
-    try:
-        role = (
-            "admin" if user_count == 0 else request.app.state.config.DEFAULT_USER_ROLE
-        )
-
-        if user_count == 0:
-            # Disable signup after the first user is created
-            request.app.state.config.ENABLE_SIGNUP = False
-
-        hashed = get_password_hash(form_data.password)
-        user = Auths.insert_new_auth(
-            form_data.email.lower(),
-            hashed,
-            form_data.name,
-            form_data.profile_image_url,
-            role,
-        )
-
-        if user:
+    # 检查邮箱是否已存在
+    existing_user = Users.get_user_by_email(form_data.email.lower())
+    if existing_user:
+        if is_wemol_integration:
+            # 如果是 wemol 用户，直接返回现有用户信息
             expires_delta = parse_duration(request.app.state.config.JWT_EXPIRES_IN)
             expires_at = None
             if expires_delta:
                 expires_at = int(time.time()) + int(expires_delta.total_seconds())
 
             token = create_token(
-                data={"id": user.id},
+                data={"id": existing_user.id},
                 expires_delta=expires_delta,
             )
 
+            # 设置 cookie
             datetime_expires_at = (
                 datetime.datetime.fromtimestamp(expires_at, datetime.timezone.utc)
                 if expires_at
                 else None
             )
-
-            # Set the cookie token
             response.set_cookie(
                 key="token",
                 value=token,
                 expires=datetime_expires_at,
-                httponly=True,  # Ensures the cookie is not accessible via JavaScript
+                httponly=True,
                 samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
                 secure=WEBUI_AUTH_COOKIE_SECURE,
             )
 
-            if request.app.state.config.WEBHOOK_URL:
-                post_webhook(
-                    request.app.state.WEBUI_NAME,
-                    request.app.state.config.WEBHOOK_URL,
-                    WEBHOOK_MESSAGES.USER_SIGNUP(user.name),
-                    {
-                        "action": "signup",
-                        "message": WEBHOOK_MESSAGES.USER_SIGNUP(user.name),
-                        "user": user.model_dump_json(exclude_none=True),
-                    },
-                )
-
             user_permissions = get_permissions(
-                user.id, request.app.state.config.USER_PERMISSIONS
+                existing_user.id, request.app.state.config.USER_PERMISSIONS
             )
 
             return {
                 "token": token,
                 "token_type": "Bearer",
                 "expires_at": expires_at,
-                "id": user.id,
-                "email": user.email,
-                "name": user.name,
-                "role": user.role,
-                "profile_image_url": user.profile_image_url,
+                "id": existing_user.id,
+                "name": existing_user.name,
+                "email": existing_user.email,
+                "role": existing_user.role,
+                "profile_image_url": existing_user.profile_image_url,
                 "permissions": user_permissions,
             }
         else:
+            raise HTTPException(400, detail=ERROR_MESSAGES.EMAIL_TAKEN)
+
+    try:
+        # 创建新用户
+        role = request.app.state.config.DEFAULT_USER_ROLE
+        hashed = get_password_hash(form_data.password)
+        
+        user = Auths.insert_new_auth(
+            email=form_data.email.lower(),
+            password=hashed,
+            name=form_data.name,
+            profile_image_url=form_data.profile_image_url,
+            role=role,
+            status='active'  # 直接设置状态为 active
+        )
+
+        if not user:
             raise HTTPException(500, detail=ERROR_MESSAGES.CREATE_USER_ERROR)
+
+        # 创建访问令牌
+        expires_delta = parse_duration(request.app.state.config.JWT_EXPIRES_IN)
+        expires_at = None
+        if expires_delta:
+            expires_at = int(time.time()) + int(expires_delta.total_seconds())
+
+        token = create_token(
+            data={"id": user.id},
+            expires_delta=expires_delta,
+        )
+
+        # 设置 cookie
+        datetime_expires_at = (
+            datetime.datetime.fromtimestamp(expires_at, datetime.timezone.utc)
+            if expires_at
+            else None
+        )
+        response.set_cookie(
+            key="token",
+            value=token,
+            expires=datetime_expires_at,
+            httponly=True,
+            samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
+            secure=WEBUI_AUTH_COOKIE_SECURE,
+        )
+
+        user_permissions = get_permissions(
+            user.id, request.app.state.config.USER_PERMISSIONS
+        )
+
+        return {
+            "token": token,
+            "token_type": "Bearer",
+            "expires_at": expires_at,
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "role": user.role,
+            "profile_image_url": user.profile_image_url,
+            "permissions": user_permissions,
+        }
+
     except Exception as err:
         raise HTTPException(500, detail=ERROR_MESSAGES.DEFAULT(err))
 
 
 @router.get("/signout")
 async def signout(request: Request, response: Response):
+    # 删除 token cookie
     response.delete_cookie("token")
+    
+    # 删除 session cookie
+    response.delete_cookie("ant_uid")  # 删除 ant_uid cookie
+    
+    # 删除其他相关的 cookies
+    response.delete_cookie("oauth_id_token")  # OAuth 相关的 cookie
+    
+    # 确保 cookie 在所有路径下都被删除
+    response.delete_cookie("ant_uid", path="/")  # 添加 path 参数
+    response.delete_cookie("token", path="/")
 
     if ENABLE_OAUTH_SIGNUP.value:
         oauth_id_token = request.cookies.get("oauth_id_token")

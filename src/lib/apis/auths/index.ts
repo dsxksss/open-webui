@@ -327,25 +327,36 @@ export const userSignUp = async (
 export const userSignOut = async () => {
 	let error = null;
 
-	const res = await fetch(`${WEBUI_API_BASE_URL}/auths/signout`, {
-		method: 'GET',
-		headers: {
-			'Content-Type': 'application/json'
-		},
-		credentials: 'include'
-	})
-		.then(async (res) => {
-			if (!res.ok) throw await res.json();
-			return res;
-		})
-		.catch((err) => {
-			console.log(err);
-			error = err.detail;
-			return null;
-		});
+	try {
+		// 清除wemol cookie
+		const cookies = document.cookie.split(';');
+		for (let cookie of cookies) {
+			const [name] = cookie.split('=');
+			document.cookie = `${name.trim()}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+		}
 
-	if (error) {
-		throw error;
+		const res = await fetch(`${WEBUI_API_BASE_URL}/auths/signout`, {
+			method: 'GET',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			credentials: 'include'
+		})
+			.then(async (res) => {
+				if (!res.ok) throw await res.json();
+				return res;
+			})
+			.catch((err) => {
+				console.log(err);
+				error = err.detail;
+				return null;
+			});
+
+		if (error) {
+			throw error;
+		}
+	} catch (err) {
+		console.error('Error during sign out:', err);
 	}
 };
 

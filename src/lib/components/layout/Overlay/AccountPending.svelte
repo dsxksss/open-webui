@@ -53,9 +53,14 @@
 						class="text-xs text-center w-full mt-2 text-gray-400 underline"
 						on:click={async () => {
 							localStorage.removeItem('token');
+							// 清除wemol cookie
+							const cookies = document.cookie.split(';');
+							for (let cookie of cookies) {
+								const [name] = cookie.split('=');
+								document.cookie = `${name.trim()}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+							}
 							location.href = WEBUI_BASE_URL + '/auth';
-						}}>{$i18n.t('Sign Out')}</button
-					>
+						}}>{$i18n.t('Sign Out')}</button>
 				</div>
 			</div>
 		</div>

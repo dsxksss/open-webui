@@ -101,31 +101,39 @@ class AuthsTable:
         password: str,
         name: str,
         profile_image_url: str = "/user.png",
-        role: str = "pending",
-        oauth_sub: Optional[str] = None,
+        role: str = "user",
+        status: str = "active",
     ) -> Optional[UserModel]:
-        with get_db() as db:
-            log.info("insert_new_auth")
+        try:
+            with get_db() as db:
+                # 生成用户 ID
+                id = str(uuid.uuid4())
 
-            id = str(uuid.uuid4())
+                # 创建 Auth 记录
+                auth = AuthModel(
+                    **{"id": id, "email": email, "password": password, "active": True}
+                )
+                auth_record = Auth(**auth.model_dump())
+                db.add(auth_record)
 
-            auth = AuthModel(
-                **{"id": id, "email": email, "password": password, "active": True}
-            )
-            result = Auth(**auth.model_dump())
-            db.add(result)
+                # 创建 User 记录，明确设置 role
+                user = Users.insert_new_user(
+                    id=id,
+                    name=name,
+                    email=email,
+                    profile_image_url=profile_image_url,
+                    role="user",
+                )
 
-            user = Users.insert_new_user(
-                id, name, email, profile_image_url, role, oauth_sub
-            )
+                db.commit()
+                db.refresh(auth_record)
 
-            db.commit()
-            db.refresh(result)
-
-            if result and user:
-                return user
-            else:
+                if auth_record and user:
+                    return user
                 return None
+        except Exception as err:
+            log.error(f"Error inserting new auth: {err}")
+            return None
 
     def authenticate_user(self, email: str, password: str) -> Optional[UserModel]:
         log.info(f"authenticate_user: {email}")

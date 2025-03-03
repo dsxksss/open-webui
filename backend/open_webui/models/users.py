@@ -46,7 +46,7 @@ class UserModel(BaseModel):
     id: str
     name: str
     email: str
-    role: str = "pending"
+    role: str = "user"
     profile_image_url: str
 
     last_active_at: int  # timestamp in epoch
@@ -101,31 +101,37 @@ class UsersTable:
         name: str,
         email: str,
         profile_image_url: str = "/user.png",
-        role: str = "pending",
+        role: str = "user",
+        status: str = "active",
         oauth_sub: Optional[str] = None,
     ) -> Optional[UserModel]:
-        with get_db() as db:
-            user = UserModel(
-                **{
-                    "id": id,
-                    "name": name,
-                    "email": email,
-                    "role": role,
-                    "profile_image_url": profile_image_url,
-                    "last_active_at": int(time.time()),
-                    "created_at": int(time.time()),
-                    "updated_at": int(time.time()),
-                    "oauth_sub": oauth_sub,
-                }
-            )
-            result = User(**user.model_dump())
-            db.add(result)
-            db.commit()
-            db.refresh(result)
-            if result:
-                return user
-            else:
-                return None
+        try:
+            with get_db() as db:
+                user = UserModel(
+                    **{
+                        "id": id,
+                        "name": name,
+                        "email": email,
+                        "role": role,
+                        "profile_image_url": profile_image_url,
+                        "last_active_at": int(time.time()),
+                        "created_at": int(time.time()),
+                        "updated_at": int(time.time()),
+                        "oauth_sub": oauth_sub,
+                        "status": status,
+                    }
+                )
+                result = User(**user.model_dump())
+                db.add(result)
+                db.commit()
+                db.refresh(result)
+                if result:
+                    return user
+                else:
+                    return None
+        except Exception as err:
+            log.error(f"Error inserting new user: {err}")
+            return None
 
     def get_user_by_id(self, id: str) -> Optional[UserModel]:
         try:
