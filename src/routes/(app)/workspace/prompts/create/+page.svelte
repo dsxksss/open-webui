@@ -8,6 +8,7 @@
 
 	import { createNewPrompt, getPrompts } from '$lib/apis/prompts';
 	import PromptEditor from '$lib/components/workspace/Prompts/PromptEditor.svelte';
+	import { WEBUI_BASE_URL } from '$lib/constants';
 
 	let prompt = null;
 	const onSubmit = async (_prompt) => {

@@ -38,7 +38,7 @@
 		if (res) {
 			toast.success($i18n.t('Knowledge created successfully.'));
 			knowledge.set(await getKnowledgeBases(localStorage.token));
-			goto(`/workspace/knowledge/${res.id}`);
+			goto(`${WEBUI_BASE_URL}/workspace/knowledge/${res.id}`);
 		}
 
 		loading = false;

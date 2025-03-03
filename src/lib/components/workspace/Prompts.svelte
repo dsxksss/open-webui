@@ -23,6 +23,7 @@
 	import Spinner from '../common/Spinner.svelte';
 	import Tooltip from '../common/Tooltip.svelte';
 	import { capitalizeFirstLetter } from '$lib/utils';
+	import { WEBUI_BASE_URL } from '$lib/constants';
 
 	const i18n = getContext('i18n');
 	let promptsImportInputElement: HTMLInputElement;
@@ -131,7 +132,7 @@
 			<div>
 				<a
 					class=" px-2 py-2 rounded-xl hover:bg-gray-700/10 dark:hover:bg-gray-100/10 dark:text-gray-300 dark:hover:text-white transition font-medium text-sm flex items-center space-x-1"
-					href="/workspace/prompts/create"
+					href={WEBUI_BASE_URL + '/workspace/prompts/create'}
 				>
 					<Plus className="size-3.5" />
 				</a>
@@ -145,7 +146,7 @@
 				class=" flex space-x-4 cursor-pointer w-full px-3 py-2 dark:hover:bg-white/5 hover:bg-black/5 rounded-xl transition"
 			>
 				<div class=" flex flex-1 space-x-4 cursor-pointer w-full">
-					<a href={`/workspace/prompts/edit?command=${encodeURIComponent(prompt.command)}`}>
+					<a href={`${WEBUI_BASE_URL}/workspace/prompts/edit?command=${encodeURIComponent(prompt.command)}`}>
 						<div class=" flex-1 flex items-center gap-2 self-center">
 							<div class=" font-semibold line-clamp-1 capitalize">{prompt.title}</div>
 							<div class=" text-xs overflow-hidden text-ellipsis line-clamp-1">
@@ -174,7 +175,7 @@
 					<a
 						class="self-center w-fit text-sm px-2 py-2 dark:text-gray-300 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 rounded-xl"
 						type="button"
-						href={`/workspace/prompts/edit?command=${encodeURIComponent(prompt.command)}`}
+						href={`${WEBUI_BASE_URL}/workspace/prompts/edit?command=${encodeURIComponent(prompt.command)}`}
 					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"

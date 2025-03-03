@@ -12,6 +12,7 @@
 
 	import { getModels } from '$lib/apis';
 	import ModelEditor from '$lib/components/workspace/Models/ModelEditor.svelte';
+	import { WEBUI_BASE_URL } from '$lib/constants';
 
 	let model = null;
 

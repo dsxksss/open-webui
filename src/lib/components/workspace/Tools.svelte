@@ -31,6 +31,7 @@
 	import ChevronRight from '../icons/ChevronRight.svelte';
 	import Spinner from '../common/Spinner.svelte';
 	import { capitalizeFirstLetter } from '$lib/utils';
+	import { WEBUI_BASE_URL } from '$lib/constants';
 
 	const i18n = getContext('i18n');
 
@@ -199,7 +200,7 @@
 			<div>
 				<a
 					class=" px-2 py-2 rounded-xl hover:bg-gray-700/10 dark:hover:bg-gray-100/10 dark:text-gray-300 dark:hover:text-white transition font-medium text-sm flex items-center space-x-1"
-					href="/workspace/tools/create"
+					href={WEBUI_BASE_URL + '/workspace/tools/create'}
 				>
 					<Plus className="size-3.5" />
 				</a>
@@ -214,7 +215,7 @@
 			>
 				<a
 					class=" flex flex-1 space-x-3.5 cursor-pointer w-full"
-					href={`/workspace/tools/edit?id=${encodeURIComponent(tool.id)}`}
+					href={`${WEBUI_BASE_URL}/workspace/tools/edit?id=${encodeURIComponent(tool.id)}`}
 				>
 					<div class="flex items-center text-left">
 						<div class=" flex-1 self-center">
@@ -328,7 +329,7 @@
 
 						<ToolMenu
 							editHandler={() => {
-								goto(`/workspace/tools/edit?id=${encodeURIComponent(tool.id)}`);
+								goto(`${WEBUI_BASE_URL}/workspace/tools/edit?id=${encodeURIComponent(tool.id)}`);
 							}}
 							shareHandler={() => {
 								shareHandler(tool);

@@ -9,6 +9,7 @@
 	import { getModels } from '$lib/apis';
 
 	import ModelEditor from '$lib/components/workspace/Models/ModelEditor.svelte';
+	import { WEBUI_BASE_URL } from '$lib/constants';
 
 	const i18n = getContext('i18n');
 
