@@ -269,7 +269,7 @@
 
 					<a
 						class=" flex flex-1 cursor-pointer w-full"
-						href={`/?models=${encodeURIComponent(model.id)}`}
+						href={`${WEBUI_BASE_URL}/?models=${encodeURIComponent(model.id)}`}
 					>
 						<div class=" flex-1 self-center {model.is_active ? '' : 'text-gray-500'}">
 							<Tooltip
