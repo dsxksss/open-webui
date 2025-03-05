@@ -159,7 +159,14 @@
 				on:click={async () => {
 					await userSignOut();
 					localStorage.removeItem('token');
-					location.href = WEBUI_BASE_URL + '/auth';
+					// 清除所有 cookies
+					const cookies = document.cookie.split(';');
+					for (let cookie of cookies) {
+						const [name] = cookie.split('=');
+						document.cookie = `${name.trim()}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+					}
+					// 使用 window.top 来刷新整个页面，包括父窗口
+					window.top.location.href = WEBUI_BASE_URL + '/auth';
 					show = false;
 				}}
 			>

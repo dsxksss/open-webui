@@ -73,7 +73,10 @@ const isLoadingStore = createIsLoadingStore(i18next);
 
 export const getLanguages = async () => {
 	const languages = (await import(`./locales/languages.json`)).default;
-	return languages;
+	// return languages;
+	
+	// 只允许切换中英文
+	return languages.filter((language) => language.code === 'zh-CN' || language.code === 'en-US');
 };
 export default i18n;
 export const isLoading = isLoadingStore;

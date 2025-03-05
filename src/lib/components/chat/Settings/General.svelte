@@ -79,6 +79,11 @@
 		saveSettings({ requestFormat: requestFormat !== '' ? requestFormat : undefined });
 	};
 
+	const handleLanguageChange = (newLang: string) => {
+		localStorage.setItem('wemol-lang', newLang);
+		$i18n.changeLanguage(newLang);
+	};
+
 	onMount(async () => {
 		selectedTheme = localStorage.theme ?? 'system';
 
@@ -92,6 +97,19 @@
 
 		params = { ...params, ...$settings.params };
 		params.stop = $settings?.params?.stop ? ($settings?.params?.stop ?? []).join(',') : null;
+
+		const savedLang = localStorage.getItem('wemol-lang');
+		if (savedLang) {
+			lang = savedLang;
+			$i18n.changeLanguage(savedLang);
+		}
+
+		window.addEventListener('storage', (e) => {
+			if (e.key === 'wemol-lang' && e.newValue) {
+				lang = e.newValue;
+				$i18n.changeLanguage(e.newValue);
+			}
+		});
 	});
 
 	const applyTheme = (_theme: string) => {
@@ -197,8 +215,8 @@
 						class=" dark:bg-gray-900 w-fit pr-8 rounded-sm py-2 px-2 text-xs bg-transparent outline-hidden text-right"
 						bind:value={lang}
 						placeholder="Select a language"
-						on:change={(e) => {
-							$i18n.changeLanguage(lang);
+						on:change={() => {
+							handleLanguageChange(lang);
 						}}
 					>
 						{#each languages as language}

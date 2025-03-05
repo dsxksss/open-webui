@@ -53,14 +53,16 @@
 						class="text-xs text-center w-full mt-2 text-gray-400 underline"
 						on:click={async () => {
 							localStorage.removeItem('token');
-							// 清除wemol cookie
+							// 清除所有 cookies
 							const cookies = document.cookie.split(';');
 							for (let cookie of cookies) {
 								const [name] = cookie.split('=');
 								document.cookie = `${name.trim()}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
 							}
-							location.href = WEBUI_BASE_URL + '/auth';
-						}}>{$i18n.t('Sign Out')}</button>
+							// 使用 window.top 来刷新整个页面，包括父窗口
+							window.top.location.href = WEBUI_BASE_URL + '/auth';
+						}}
+					>{$i18n.t('Sign Out')}</button>
 				</div>
 			</div>
 		</div>
