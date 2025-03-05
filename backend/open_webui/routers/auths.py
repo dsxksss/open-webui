@@ -5,6 +5,7 @@ import datetime
 import logging
 from aiohttp import ClientSession
 from datetime import timedelta
+import base64
 
 from open_webui.models.auths import (
     AddUserForm,
@@ -487,6 +488,17 @@ async def signup(
             raise HTTPException(400, detail=ERROR_MESSAGES.EMAIL_TAKEN)
 
     try:
+        # 生成用户头像
+        initial = form_data.name[0].upper() if form_data.name else 'U'
+        avatar_svg = f'''
+        <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="50" fill="#4F46E5"/>
+            <text x="50" y="50" font-family="Arial" font-size="40" fill="white" 
+                  text-anchor="middle" dominant-baseline="central">{initial}</text>
+        </svg>
+        '''
+        avatar_data_url = f"data:image/svg+xml;base64,{base64.b64encode(avatar_svg.encode()).decode()}"
+
         # 创建新用户
         role = request.app.state.config.DEFAULT_USER_ROLE
         hashed = get_password_hash(form_data.password)
@@ -495,9 +507,9 @@ async def signup(
             email=form_data.email.lower(),
             password=hashed,
             name=form_data.name,
-            profile_image_url=form_data.profile_image_url,
+            profile_image_url=avatar_data_url,  # 使用生成的头像
             role=role,
-            status='active'  # 直接设置状态为 active
+            status='active'
         )
 
         if not user:
