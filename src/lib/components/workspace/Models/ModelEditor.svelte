@@ -16,6 +16,7 @@
 	import AccessControl from '../common/AccessControl.svelte';
 	import { stringify } from 'postcss';
 	import { toast } from 'svelte-sonner';
+	import { WEBUI_BASE_URL } from '$lib/constants';
 
 	const i18n = getContext('i18n');
 
@@ -378,13 +379,13 @@
 						>
 							{#if info.meta.profile_image_url}
 								<img
-									src={info.meta.profile_image_url}
+									src={`${WEBUI_BASE_URL}/${info.meta.profile_image_url}`}
 									alt="model profile"
 									class="rounded-xl size-72 md:size-60 object-cover shrink-0"
 								/>
 							{:else}
 								<img
-									src="static/favicon.png"
+									src={`${WEBUI_BASE_URL}/static/favicon.png`}
 									alt="model profile"
 									class=" rounded-xl size-72 md:size-60 object-cover shrink-0"
 								/>

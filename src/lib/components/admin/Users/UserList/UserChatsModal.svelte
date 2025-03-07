@@ -12,6 +12,7 @@
 	import Modal from '$lib/components/common/Modal.svelte';
 	import Tooltip from '$lib/components/common/Tooltip.svelte';
 	import Spinner from '$lib/components/common/Spinner.svelte';
+	import { WEBUI_BASE_URL } from '$lib/constants';
 
 	const i18n = getContext('i18n');
 
@@ -123,7 +124,7 @@
 												'border-b'} dark:bg-gray-900 dark:border-gray-850 text-xs"
 										>
 											<td class="px-3 py-1">
-												<a href="/s/{chat.id}" target="_blank">
+												<a href={`${WEBUI_BASE_URL}/s/${chat.id}`} target="_blank">
 													<div class=" underline line-clamp-1 max-w-96">
 														{chat.title}
 													</div>

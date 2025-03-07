@@ -59,8 +59,8 @@
 								const [name] = cookie.split('=');
 								document.cookie = `${name.trim()}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
 							}
-							// 使用 window.top 来刷新整个页面，包括父窗口
-							window.top.location.href = WEBUI_BASE_URL + '/auth';
+							// 只刷新父窗口
+							window.top.location.reload();
 						}}
 					>{$i18n.t('Sign Out')}</button>
 				</div>
