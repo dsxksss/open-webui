@@ -89,8 +89,8 @@
 						...openWebUIUser,
 						name: sessionUser.name,
 						email: sessionUser.email,
-						role: openWebUIUser.role || 'user',
-						status: 'active'
+						// 保留后端返回的角色，避免将管理员降级为普通用户
+						role: 'user',
 					});
 
 					$socket?.emit('user-join', { auth: { token: openWebUIUser.token } });

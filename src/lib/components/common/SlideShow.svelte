@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { WEBUI_BASE_URL } from '$lib/constants';
 	import { onMount } from 'svelte';
 
 	export let imageUrls = [
@@ -20,7 +21,7 @@
 {#each imageUrls as imageUrl, idx (idx)}
 	<div
 		class="image w-full h-full absolute top-0 left-0 bg-cover bg-center transition-opacity duration-1000"
-		style="opacity: {selectedImageIdx === idx ? 1 : 0}; background-image: url('{imageUrl}')"
+		style="opacity: {selectedImageIdx === idx ? 1 : 0}; background-image: url('{WEBUI_BASE_URL}{imageUrl}')"
 	></div>
 {/each}
 

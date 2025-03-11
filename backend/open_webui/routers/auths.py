@@ -432,8 +432,15 @@ async def signup(
     # 检查是否是 wemol 集成请求
     is_wemol_integration = request.headers.get('X-Special-Auth') == 'wemol-integration'
     
-    # 如果是普通请求且注册被禁用，返回错误
-    if not is_wemol_integration and not request.app.state.config.ENABLE_SIGNUP:
+    # 获取当前用户数量，确定是否是第一个用户
+    user_count = Users.get_num_users()
+    is_first_user = user_count == 0 or user_count == None
+    
+    # 打印调试信息
+    print(f"DEBUG: user_count={user_count}, is_first_user={is_first_user}")
+    
+    # 如果是普通请求且注册被禁用（且不是第一个用户），返回错误
+    if not is_wemol_integration and not is_first_user and not request.app.state.config.ENABLE_SIGNUP:
         raise HTTPException(
             status_code=403,
             detail="You do not have permission to access this resource. Please contact your administrator for assistance.",
@@ -488,29 +495,41 @@ async def signup(
             raise HTTPException(400, detail=ERROR_MESSAGES.EMAIL_TAKEN)
 
     try:
+        # 确定用户角色 - 强制第一个用户为管理员
+        role = "admin" if is_first_user else request.app.state.config.DEFAULT_USER_ROLE
+        print(f"DEBUG: Assigning role: {role}")
+        
+        # 根据角色选择头像背景颜色
+        if role == "admin":
+            bg_color = "#f39c12"
+        elif role == "user":
+            bg_color = "#445ed5"
+        else:
+            bg_color = "#646464"
+            
         # 生成用户头像
         initial = form_data.name[0].upper() if form_data.name else 'U'
         avatar_svg = f'''
         <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="50" fill="#4F46E5"/>
+            <circle cx="50" cy="50" r="50" fill="{bg_color}"/>
             <text x="50" y="50" font-family="Arial" font-size="40" fill="white" 
                   text-anchor="middle" dominant-baseline="central">{initial}</text>
         </svg>
         '''
         avatar_data_url = f"data:image/svg+xml;base64,{base64.b64encode(avatar_svg.encode()).decode()}"
-
-        # 创建新用户
-        role = request.app.state.config.DEFAULT_USER_ROLE
+        
         hashed = get_password_hash(form_data.password)
         
+        # 确保 role 参数正确传递
         user = Auths.insert_new_auth(
             email=form_data.email.lower(),
             password=hashed,
             name=form_data.name,
-            profile_image_url=avatar_data_url,  # 使用生成的头像
+            profile_image_url=avatar_data_url,
             role=role,
-            status='active'
         )
+        
+        print(f"DEBUG: User created with role: {user.role}")
 
         if not user:
             raise HTTPException(500, detail=ERROR_MESSAGES.CREATE_USER_ERROR)

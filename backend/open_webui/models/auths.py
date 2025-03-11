@@ -91,43 +91,40 @@ class SignupForm(BaseModel):
 
 
 class AddUserForm(SignupForm):
-    role: Optional[str] = "pending"
+    role: Optional[str] = "user"
 
 
 class AuthsTable:
-    def insert_new_auth(
-        self,
-        email: str,
-        password: str,
-        name: str,
-        profile_image_url: str = "/user.png",
-        role: str = "user",
-        status: str = "active",
-    ) -> Optional[UserModel]:
+    @classmethod
+    def insert_new_auth(cls, email, password, name, profile_image_url=None, role="user"):
         try:
             with get_db() as db:
                 # 生成用户 ID
                 id = str(uuid.uuid4())
-
+                
+                # 确保使用传入的角色参数
+                actual_role = role if role is not None else "user"
+                print(f"DEBUG: Creating auth with role: {actual_role}")
+                
                 # 创建 Auth 记录
                 auth = AuthModel(
                     **{"id": id, "email": email, "password": password, "active": True}
                 )
                 auth_record = Auth(**auth.model_dump())
                 db.add(auth_record)
-
-                # 创建 User 记录，明确设置 role
+                
+                # 创建 User 记录，使用实际的角色参数
                 user = Users.insert_new_user(
                     id=id,
                     name=name,
                     email=email,
-                    profile_image_url=profile_image_url,
-                    role="user",
+                    profile_image_url=profile_image_url if profile_image_url else "/user.png",
+                    role=actual_role,  # 使用传入的角色
                 )
-
+                
                 db.commit()
                 db.refresh(auth_record)
-
+                
                 if auth_record and user:
                     return user
                 return None

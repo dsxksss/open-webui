@@ -229,7 +229,7 @@
 										: 'opacity-50 dark:opacity-50'} "
 								>
 									<img
-										src={model?.meta?.profile_image_url.includes('static/favicon.png') ? `${WEBUI_BASE_URL}/static/favicon.png` : model?.meta?.profile_image_url}
+										src={model?.meta?.profile_image_url.includes('static/favicon.png') || model?.meta?.profile_image_url == null ? `${WEBUI_BASE_URL}/static/favicon.png` : model?.meta?.profile_image_url}
 										alt="modelfile profile"
 										class=" rounded-full w-full h-auto object-cover"
 									/>

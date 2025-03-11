@@ -102,7 +102,6 @@ class UsersTable:
         email: str,
         profile_image_url: str = "/user.png",
         role: str = "user",
-        status: str = "active",
         oauth_sub: Optional[str] = None,
     ) -> Optional[UserModel]:
         try:
@@ -118,7 +117,6 @@ class UsersTable:
                         "created_at": int(time.time()),
                         "updated_at": int(time.time()),
                         "oauth_sub": oauth_sub,
-                        "status": status,
                     }
                 )
                 result = User(**user.model_dump())
