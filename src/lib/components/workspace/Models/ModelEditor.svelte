@@ -379,7 +379,9 @@
 						>
 							{#if info.meta.profile_image_url}
 								<img
-									src={`${WEBUI_BASE_URL}/${info.meta.profile_image_url}`}
+									src={info.meta.profile_image_url.includes('data:')
+										? info.meta.profile_image_url
+										: `${WEBUI_BASE_URL}/${info.meta.profile_image_url}`}
 									alt="model profile"
 									class="rounded-xl size-72 md:size-60 object-cover shrink-0"
 								/>

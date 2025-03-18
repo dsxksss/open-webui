@@ -73,8 +73,11 @@
 						if (!response.ok) {
 							throw new Error($i18n.t('Failed to create user account. Please contact administrator.'));
 						}
-
+						
 						openWebUIUser = await response.json();
+						
+						// TODO 检查wemol组是否存在，不存在则创建
+						// TODO 将WeMol用户设置为wemol组中的成员
 					}
 
 					// 使用 OpenWebUI 的 token
