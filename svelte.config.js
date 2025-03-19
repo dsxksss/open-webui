@@ -16,7 +16,7 @@ const config = {
 			fallback: 'index.html'
 		}),
 		paths: {
-			base: '/openwebui'
+			base: '/copilot'
 		}
 	},
 	vitePlugin: {
