@@ -1,0 +1,1 @@
+docker build --build-arg HTTP_PROXY=http://192.168.1.163:7897 --build-arg HTTPS_PROXY=http://192.168.1.163:7897 --build-arg http_proxy=http://192.168.1.163:7897 --build-arg https_proxy=http://192.168.1.163:7897 --build-arg no_proxy=localhost,127.0.0.1 --build-arg NO_PROXY=localhost,127.0.0.1 -t wemol_openwebui:1.1 .
