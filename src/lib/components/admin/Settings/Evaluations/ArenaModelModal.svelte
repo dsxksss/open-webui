@@ -10,6 +10,7 @@
 	import PencilSolid from '$lib/components/icons/PencilSolid.svelte';
 	import { toast } from 'svelte-sonner';
 	import AccessControl from '$lib/components/workspace/common/AccessControl.svelte';
+	import { WEBUI_BASE_URL } from '$lib/constants';
 
 	export let show = false;
 	export let edit = false;
@@ -33,7 +34,7 @@
 		}
 	};
 
-	let profileImageUrl = '/favicon.png';
+	let profileImageUrl = `${WEBUI_BASE_URL}/static/favicon.png`;
 	let description = '';
 
 	let selectedModelId = '';
