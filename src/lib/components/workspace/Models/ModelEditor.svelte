@@ -368,7 +368,7 @@
 				<div class="self-center md:self-start flex justify-center my-2 shrink-0">
 					<div class="self-center">
 						<button
-							class="rounded-xl flex shrink-0 items-center {info.meta.profile_image_url !==
+							class="rounded-xl flex flex-shrink-0 items-center {info.meta.profile_image_url !==
 							'static/favicon.png'
 								? 'bg-transparent'
 								: 'bg-white'} shadow-xl group relative"
