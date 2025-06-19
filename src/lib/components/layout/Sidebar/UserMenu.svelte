@@ -161,6 +161,7 @@
 					user.set(null);
 
 					localStorage.removeItem('token');
+					location.href = WEBUI_BASE_URL + '/auth';
 					// 清除所有 cookies
 					const cookies = document.cookie.split(';');
 					for (let cookie of cookies) {

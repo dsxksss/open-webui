@@ -53,6 +53,7 @@
 						class="text-xs text-center w-full mt-2 text-gray-400 underline"
 						on:click={async () => {
 							localStorage.removeItem('token');
+							location.href = WEBUI_BASE_URL + '/auth';
 							// 清除所有 cookies
 							const cookies = document.cookie.split(';');
 							for (let cookie of cookies) {
