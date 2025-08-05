@@ -1,7 +1,7 @@
 <script>
 	import { toast } from 'svelte-sonner';
 
-	import { onMount, getContext } from 'svelte';
+	import { onMount, getContext, tick } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
@@ -266,6 +266,29 @@
 
 	let onboarding = false;
 
+	async function setLogoImage() {
+		await tick();
+		const logo = document.getElementById('logo');
+
+		if (logo) {
+			const isDarkMode = document.documentElement.classList.contains('dark');
+
+			if (isDarkMode) {
+				const darkImage = new Image();
+				darkImage.src = '/static/favicon-dark.png';
+
+				darkImage.onload = () => {
+					logo.src = '/static/favicon-dark.png';
+					logo.style.filter = ''; // Ensure no inversion is applied if favicon-dark.png exists
+				};
+
+				darkImage.onerror = () => {
+					logo.style.filter = 'invert(1)'; // Invert image if favicon-dark.png is missing
+				};
+			}
+		}
+	}
+
 	onMount(async () => {
 		if ($user !== undefined) {
 			await goto(WEBUI_BASE_URL + '/');
@@ -281,6 +304,8 @@
 		await checkOauthCallback();
 
 		loaded = true;
+		setLogoImage();
+
 		if (($config?.features.auth_trusted_header ?? false) || $config?.features.auth === false) {
 			await signInHandler();
 		} else {
@@ -313,10 +338,11 @@
 			<div class="flex space-x-2">
 				<div class=" self-center">
 					<img
+						id="logo"
 						crossorigin="anonymous"
-						src="{WEBUI_BASE_URL}/static/splash.png"
-						class=" w-6 rounded-full dark:invert"
-						alt="logo"
+						src="{WEBUI_BASE_URL}/static/favicon.png"
+						class=" w-6 rounded-full"
+						alt=""
 					/>
 				</div>
 			</div>
@@ -363,7 +389,7 @@
 								</div>
 
 								{#if $config?.onboarding ?? false}
-									<div class=" mt-1 text-xs font-medium text-gray-500">
+									<div class="mt-1 text-xs font-medium text-gray-600 dark:text-gray-500">
 										ⓘ {$WEBUI_NAME}
 										{$i18n.t(
 											'does not make any external connections, and your data stays securely on your locally hosted server.'
@@ -376,10 +402,13 @@
 								<div class="flex flex-col mt-4">
 									{#if mode === 'signup'}
 										<div class="mb-2">
-											<div class=" text-sm font-medium text-left mb-1">{$i18n.t('Name')}</div>
+											<label for="name" class="text-sm font-medium text-left mb-1 block"
+												>{$i18n.t('Name')}</label
+											>
 											<input
 												bind:value={name}
 												type="text"
+												id="name"
 												class="my-0.5 w-full text-sm outline-hidden bg-transparent"
 												autocomplete="name"
 												placeholder={$i18n.t('Enter Your Full Name')}
@@ -390,7 +419,9 @@
 
 									{#if mode === 'ldap'}
 										<div class="mb-2">
-											<div class=" text-sm font-medium text-left mb-1">{$i18n.t('Username')}</div>
+											<label for="username" class="text-sm font-medium text-left mb-1 block"
+												>{$i18n.t('Username')}</label
+											>
 											<input
 												bind:value={ldapUsername}
 												type="text"
@@ -432,11 +463,13 @@
 									{/if}
 
 									<div>
-										<div class=" text-sm font-medium text-left mb-1">{$i18n.t('Password')}</div>
-
+										<label for="password" class="text-sm font-medium text-left mb-1 block"
+											>{$i18n.t('Password')}</label
+										>
 										<input
 											bind:value={password}
 											type="password"
+											id="password"
 											class="my-0.5 w-full text-sm outline-hidden bg-transparent"
 											placeholder={$i18n.t('Enter Your Password')}
 											autocomplete="current-password"

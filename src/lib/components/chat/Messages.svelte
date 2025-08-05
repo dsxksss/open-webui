@@ -14,7 +14,7 @@
 
 	import { toast } from 'svelte-sonner';
 	import { getChatList, updateChatById } from '$lib/apis/chats';
-	import { copyToClipboard, findWordIndices } from '$lib/utils';
+	import { copyToClipboard, extractCurlyBraceWords } from '$lib/utils';
 
 	import Message from './Messages/Message.svelte';
 	import Loader from '../common/Loader.svelte';
@@ -32,6 +32,7 @@
 	export let prompt;
 	export let history = {};
 	export let selectedModels;
+	export let atSelectedModel;
 
 	let messages = [];
 
@@ -103,6 +104,47 @@
 
 			currentChatPage.set(1);
 			await chats.set(await getChatList(localStorage.token, $currentChatPage));
+		}
+	};
+
+	const gotoMessage = async (message, idx) => {
+		// Determine the correct sibling list (either parent's children or root messages)
+		let siblings;
+		if (message.parentId !== null) {
+			siblings = history.messages[message.parentId].childrenIds;
+		} else {
+			siblings = Object.values(history.messages)
+				.filter((msg) => msg.parentId === null)
+				.map((msg) => msg.id);
+		}
+
+		// Clamp index to a valid range
+		idx = Math.max(0, Math.min(idx, siblings.length - 1));
+
+		let messageId = siblings[idx];
+
+		// If we're navigating to a different message
+		if (message.id !== messageId) {
+			// Drill down to the deepest child of that branch
+			let messageChildrenIds = history.messages[messageId].childrenIds;
+			while (messageChildrenIds.length !== 0) {
+				messageId = messageChildrenIds.at(-1);
+				messageChildrenIds = history.messages[messageId].childrenIds;
+			}
+
+			history.currentId = messageId;
+		}
+
+		await tick();
+
+		// Optional auto-scroll
+		if ($settings?.scrollOnBranchChange ?? true) {
+			const element = document.getElementById('messages-container');
+			autoScroll = element.scrollHeight - element.scrollTop <= element.clientHeight + 50;
+
+			setTimeout(() => {
+				scrollToBottom();
+			}, 100);
 		}
 	};
 
@@ -213,7 +255,11 @@
 		await updateChat();
 	};
 
-	const editMessage = async (messageId, content, submit = true) => {
+	const editMessage = async (messageId, { content, files }, submit = true) => {
+		if ((selectedModels ?? []).filter((id) => id).length === 0) {
+			toast.error($i18n.t('Model not selected'));
+			return;
+		}
 		if (history.messages[messageId].role === 'user') {
 			if (submit) {
 				// New user message
@@ -226,8 +272,9 @@
 					childrenIds: [],
 					role: 'user',
 					content: userPrompt,
-					...(history.messages[messageId].files && { files: history.messages[messageId].files }),
-					models: selectedModels
+					...(files && { files: files }),
+					models: selectedModels,
+					timestamp: Math.floor(Date.now() / 1000) // Unix epoch
 				};
 
 				let messageParentId = history.messages[messageId].parentId;
@@ -247,6 +294,7 @@
 			} else {
 				// Edit user message
 				history.messages[messageId].content = content;
+				history.messages[messageId].files = files;
 				await updateChat();
 			}
 		} else {
@@ -349,6 +397,7 @@
 	{#if Object.keys(history?.messages ?? {}).length == 0}
 		<ChatPlaceholder
 			modelIds={selectedModels}
+			{atSelectedModel}
 			submitPrompt={async (p) => {
 				let text = p;
 
@@ -362,19 +411,6 @@
 				}
 
 				prompt = text;
-
-				await tick();
-
-				const chatInputContainerElement = document.getElementById('chat-input-container');
-				if (chatInputContainerElement) {
-					prompt = p;
-
-					chatInputContainerElement.style.height = '';
-					chatInputContainerElement.style.height =
-						Math.min(chatInputContainerElement.scrollHeight, 200) + 'px';
-					chatInputContainerElement.focus();
-				}
-
 				await tick();
 			}}
 		/>
@@ -405,6 +441,7 @@
 							messageId={message.id}
 							idx={messageIdx}
 							{user}
+							{gotoMessage}
 							{showPreviousMessage}
 							{showNextMessage}
 							{updateChat}

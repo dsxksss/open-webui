@@ -8,20 +8,33 @@ import requests
 import os
 
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
+import pytz
+from pytz import UTC
 from typing import Optional, Union, List, Dict
+
+from opentelemetry import trace
 
 from open_webui.models.users import Users
 
 from open_webui.constants import ERROR_MESSAGES
-from open_webui.env import WEBUI_SECRET_KEY, TRUSTED_SIGNATURE_KEY, STATIC_DIR
+from open_webui.env import (
+    WEBUI_SECRET_KEY,
+    TRUSTED_SIGNATURE_KEY,
+    STATIC_DIR,
+    SRC_LOG_LEVELS,
+    WEBUI_AUTH_TRUSTED_EMAIL_HEADER,
+)
 
-from fastapi import Depends, HTTPException, Request, Response, status
+from fastapi import BackgroundTasks, Depends, HTTPException, Request, Response, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from passlib.context import CryptContext
 
+
 logging.getLogger("passlib").setLevel(logging.ERROR)
 
+log = logging.getLogger(__name__)
+log.setLevel(SRC_LOG_LEVELS["OAUTH"])
 
 SESSION_SECRET = WEBUI_SECRET_KEY
 ALGORITHM = "HS256"
@@ -50,7 +63,7 @@ def verify_signature(payload: str, signature: str) -> bool:
 def override_static(path: str, content: str):
     # Ensure path is safe
     if "/" in path or ".." in path:
-        print(f"Invalid path: {path}")
+        log.error(f"Invalid path: {path}")
         return
 
     file_path = os.path.join(STATIC_DIR, path)
@@ -64,7 +77,7 @@ def get_license_data(app, key):
     if key:
         try:
             res = requests.post(
-                "https://api.openwebui.com/api/v1/license",
+                "https://api.openwebui.com/api/v1/license/",
                 json={"key": key, "version": "1"},
                 timeout=5,
             )
@@ -75,18 +88,19 @@ def get_license_data(app, key):
                     if k == "resources":
                         for p, c in v.items():
                             globals().get("override_static", lambda a, b: None)(p, c)
-                    elif k == "user_count":
+                    elif k == "count":
                         setattr(app.state, "USER_COUNT", v)
-                    elif k == "webui_name":
+                    elif k == "name":
                         setattr(app.state, "WEBUI_NAME", v)
-
+                    elif k == "metadata":
+                        setattr(app.state, "LICENSE_METADATA", v)
                 return True
             else:
-                print(
+                log.error(
                     f"License: retrieval issue: {getattr(res, 'text', 'unknown error')}"
                 )
         except Exception as ex:
-            print(f"License: Uncaught Exception: {ex}")
+            log.exception(f"License: Uncaught Exception: {ex}")
     return False
 
 
@@ -132,16 +146,20 @@ def create_api_key():
     return f"sk-{key}"
 
 
-def get_http_authorization_cred(auth_header: str):
+def get_http_authorization_cred(auth_header: Optional[str]):
+    if not auth_header:
+        return None
     try:
         scheme, credentials = auth_header.split(" ")
         return HTTPAuthorizationCredentials(scheme=scheme, credentials=credentials)
     except Exception:
-        raise ValueError(ERROR_MESSAGES.INVALID_TOKEN)
+        return None
 
 
 def get_current_user(
     request: Request,
+    response: Response,
+    background_tasks: BackgroundTasks,
     auth_token: HTTPAuthorizationCredentials = Depends(bearer_security),
 ):
     token = None
@@ -170,12 +188,27 @@ def get_current_user(
                 ).split(",")
             ]
 
-            if request.url.path not in allowed_paths:
+            # Check if the request path matches any allowed endpoint.
+            if not any(
+                request.url.path == allowed
+                or request.url.path.startswith(allowed + "/")
+                for allowed in allowed_paths
+            ):
                 raise HTTPException(
                     status.HTTP_403_FORBIDDEN, detail=ERROR_MESSAGES.API_KEY_NOT_ALLOWED
                 )
 
-        return get_current_user_by_api_key(token)
+        user = get_current_user_by_api_key(token)
+
+        # Add user info to current span
+        current_span = trace.get_current_span()
+        if current_span:
+            current_span.set_attribute("client.user.id", user.id)
+            current_span.set_attribute("client.user.email", user.email)
+            current_span.set_attribute("client.user.role", user.role)
+            current_span.set_attribute("client.auth.type", "api_key")
+
+        return user
 
     # auth by jwt token
     try:
@@ -194,7 +227,33 @@ def get_current_user(
                 detail=ERROR_MESSAGES.INVALID_TOKEN,
             )
         else:
-            Users.update_user_last_active_by_id(user.id)
+            if WEBUI_AUTH_TRUSTED_EMAIL_HEADER:
+                trusted_email = request.headers.get(
+                    WEBUI_AUTH_TRUSTED_EMAIL_HEADER, ""
+                ).lower()
+                if trusted_email and user.email != trusted_email:
+                    # Delete the token cookie
+                    response.delete_cookie("token")
+                    # Delete OAuth token if present
+                    if request.cookies.get("oauth_id_token"):
+                        response.delete_cookie("oauth_id_token")
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="User mismatch. Please sign in again.",
+                    )
+
+            # Add user info to current span
+            current_span = trace.get_current_span()
+            if current_span:
+                current_span.set_attribute("client.user.id", user.id)
+                current_span.set_attribute("client.user.email", user.email)
+                current_span.set_attribute("client.user.role", user.role)
+                current_span.set_attribute("client.auth.type", "jwt")
+
+            # Refresh the user's last active timestamp asynchronously
+            # to prevent blocking the request
+            if background_tasks:
+                background_tasks.add_task(Users.update_user_last_active_by_id, user.id)
         return user
     else:
         raise HTTPException(
@@ -212,6 +271,14 @@ def get_current_user_by_api_key(api_key: str):
             detail=ERROR_MESSAGES.INVALID_TOKEN,
         )
     else:
+        # Add user info to current span
+        current_span = trace.get_current_span()
+        if current_span:
+            current_span.set_attribute("client.user.id", user.id)
+            current_span.set_attribute("client.user.email", user.email)
+            current_span.set_attribute("client.user.role", user.role)
+            current_span.set_attribute("client.auth.type", "api_key")
+
         Users.update_user_last_active_by_id(user.id)
 
     return user
