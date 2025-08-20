@@ -212,7 +212,7 @@
 		sessionStorage.function = JSON.stringify({
 			...func
 		});
-		goto('/admin/functions/create');
+		goto(WEBUI_BASE_URL + '/admin/functions/create');
 	}}
 />
 
@@ -253,7 +253,7 @@
 		<div>
 			<AddFunctionMenu
 				createHandler={() => {
-					goto('/admin/functions/create');
+					goto(WEBUI_BASE_URL + '/admin/functions/create');
 				}}
 				importFromLinkHandler={() => {
 					showImportModal = true;

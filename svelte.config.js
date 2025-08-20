@@ -36,8 +36,14 @@ const config = {
 				}
 			})(),
 			pollInterval: 60000
-		},paths: {
-			base: '/copilot'
+		},
+		// 自定义路径配置
+		// 使用环境变量 PUBLIC_BASE_URL 或默认为空（开发环境）
+		paths: {
+			base: process.env.PUBLIC_BASE_URL || process.env.BASE_URL || ''
+		},
+		env: {
+			publicPrefix: 'PUBLIC_'
 		}
 	},
 	vitePlugin: {

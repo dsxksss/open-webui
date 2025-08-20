@@ -5,6 +5,7 @@
 
 	import MenuLines from '$lib/components/icons/MenuLines.svelte';
 	import UserMenu from '$lib/components/layout/Sidebar/UserMenu.svelte';
+	import { WEBUI_BASE_URL } from '$lib/constants';
 
 	const i18n = getContext('i18n');
 
@@ -18,7 +19,7 @@
 			)
 		) {
 			// If the feature is not enabled, redirect to the home page
-			goto('/');
+			goto(WEBUI_BASE_URL + '/');
 		}
 
 		loaded = true;
@@ -59,7 +60,7 @@
 						<div
 							class="flex gap-1 scrollbar-none overflow-x-auto w-fit text-center text-sm font-medium bg-transparent py-1 touch-auto pointer-events-auto"
 						>
-							<a class="min-w-fit transition" href="/notes">
+							<a class="min-w-fit transition" href="{WEBUI_BASE_URL}/notes">
 								{$i18n.t('Notes')}
 							</a>
 						</div>

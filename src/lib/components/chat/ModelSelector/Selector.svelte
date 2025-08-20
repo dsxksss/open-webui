@@ -7,6 +7,7 @@
 	import relativeTime from 'dayjs/plugin/relativeTime';
 	dayjs.extend(relativeTime);
 
+	import Spinner from '$lib/components/common/Spinner.svelte';
 	import { flyAndScale } from '$lib/utils/transitions';
 	import { createEventDispatcher, onMount, getContext, tick } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -346,12 +347,17 @@
 	closeFocus={false}
 >
 	<DropdownMenu.Trigger
-		class="relative w-full font-primary"
+		class="relative w-full font-primary {($settings?.highContrastMode ?? false)
+			? ''
+			: 'outline-hidden focus:outline-hidden'}"
 		aria-label={placeholder}
 		id="model-selector-{id}-button"
 	>
-		<button
-			class="flex w-full text-left px-0.5 outline-hidden bg-transparent truncate {triggerClassName} justify-between font-medium placeholder-gray-400 focus:outline-hidden"
+		<div
+			class="flex w-full text-left px-0.5 bg-transparent truncate {triggerClassName} justify-between {($settings?.highContrastMode ??
+			false)
+				? 'dark:placeholder-gray-100 placeholder-gray-800'
+				: 'placeholder-gray-400'}"
 			on:mouseenter={async () => {
 				models.set(
 					await getModels(
@@ -360,7 +366,6 @@
 					)
 				);
 			}}
-			type="button"
 		>
 			{#if selectedModel}
 				{selectedModel.label}
@@ -368,7 +373,7 @@
 				{placeholder}
 			{/if}
 			<ChevronDown className=" self-center ml-2 size-3" strokeWidth="2.5" />
-		</button>
+		</div>
 	</DropdownMenu.Trigger>
 
 	<DropdownMenu.Content
@@ -516,152 +521,7 @@
 
 							show = false;
 						}}
-					>
-						<div class="flex flex-col">
-							{#if $mobile && (item?.model?.info?.meta?.tags ?? []).length > 0}
-								<div class="flex gap-0.5 self-start h-full mb-1.5 -translate-x-1">
-									{#each item.model?.info?.meta.tags as tag}
-										<div
-											class=" text-xs font-bold px-1 rounded-sm uppercase line-clamp-1 bg-gray-500/20 text-gray-700 dark:text-gray-200"
-										>
-											{tag.name}
-										</div>
-									{/each}
-								</div>
-							{/if}
-							<div class="flex items-center gap-2">
-								<div class="flex items-center min-w-fit">
-									<div class="line-clamp-1">
-										<div class="flex items-center min-w-fit">
-											<Tooltip
-												content={$user?.role === 'admin' ? (item?.value ?? '') : ''}
-												placement="top-start"
-											>
-												<img
-													src={item.model?.info?.meta?.profile_image_url.includes('data:')? item.model?.info?.meta?.profile_image_url : `${WEBUI_BASE_URL}/static/favicon.png`}
-													alt="Model"
-													class="rounded-full size-5 flex items-center mr-2"
-												/>
-												{item.label}
-											</Tooltip>
-										</div>
-									</div>
-									{#if item.model.owned_by === 'ollama' && (item.model.ollama?.details?.parameter_size ?? '') !== ''}
-										<div class="flex ml-1 items-center translate-y-[0.5px]">
-											<Tooltip
-												content={`${
-													item.model.ollama?.details?.quantization_level
-														? item.model.ollama?.details?.quantization_level + ' '
-														: ''
-												}${
-													item.model.ollama?.size
-														? `(${(item.model.ollama?.size / 1024 ** 3).toFixed(1)}GB)`
-														: ''
-												}`}
-												className="self-end"
-											>
-												<span
-													class=" text-xs font-medium text-gray-600 dark:text-gray-400 line-clamp-1"
-													>{item.model.ollama?.details?.parameter_size ?? ''}</span
-												>
-											</Tooltip>
-										</div>
-									{/if}
-								</div>
-
-								<!-- {JSON.stringify(item.info)} -->
-
-								{#if item.model?.direct}
-									<Tooltip content={`${'Direct'}`}>
-										<div class="translate-y-[1px]">
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												viewBox="0 0 16 16"
-												fill="currentColor"
-												class="size-3"
-											>
-												<path
-													fill-rule="evenodd"
-													d="M2 2.75A.75.75 0 0 1 2.75 2C8.963 2 14 7.037 14 13.25a.75.75 0 0 1-1.5 0c0-5.385-4.365-9.75-9.75-9.75A.75.75 0 0 1 2 2.75Zm0 4.5a.75.75 0 0 1 .75-.75 6.75 6.75 0 0 1 6.75 6.75.75.75 0 0 1-1.5 0C8 10.35 5.65 8 2.75 8A.75.75 0 0 1 2 7.25ZM3.5 11a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"
-													clip-rule="evenodd"
-												/>
-											</svg>
-										</div>
-									</Tooltip>
-								{:else if item.model.owned_by === 'openai'}
-									<Tooltip content={`${'External'}`}>
-										<div class="translate-y-[1px]">
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												viewBox="0 0 16 16"
-												fill="currentColor"
-												class="size-3"
-											>
-												<path
-													fill-rule="evenodd"
-													d="M8.914 6.025a.75.75 0 0 1 1.06 0 3.5 3.5 0 0 1 0 4.95l-2 2a3.5 3.5 0 0 1-5.396-4.402.75.75 0 0 1 1.251.827 2 2 0 0 0 3.085 2.514l2-2a2 2 0 0 0 0-2.828.75.75 0 0 1 0-1.06Z"
-													clip-rule="evenodd"
-												/>
-												<path
-													fill-rule="evenodd"
-													d="M7.086 9.975a.75.75 0 0 1-1.06 0 3.5 3.5 0 0 1 0-4.95l2-2a3.5 3.5 0 0 1 5.396 4.402.75.75 0 0 1-1.251-.827 2 2 0 0 0-3.085-2.514l-2 2a2 2 0 0 0 0 2.828.75.75 0 0 1 0 1.06Z"
-													clip-rule="evenodd"
-												/>
-											</svg>
-										</div>
-									</Tooltip>
-								{/if}
-
-								{#if item.model?.info?.meta?.description}
-									<Tooltip
-										content={`${marked.parse(
-											sanitizeResponseContent(item.model?.info?.meta?.description).replaceAll(
-												'\n',
-												'<br>'
-											)
-										)}`}
-									>
-										<div class=" translate-y-[1px]">
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												fill="none"
-												viewBox="0 0 24 24"
-												stroke-width="1.5"
-												stroke="currentColor"
-												class="w-4 h-4"
-											>
-												<path
-													stroke-linecap="round"
-													stroke-linejoin="round"
-													d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"
-												/>
-											</svg>
-										</div>
-									</Tooltip>
-								{/if}
-
-								{#if !$mobile && (item?.model?.info?.meta?.tags ?? []).length > 0}
-									<div class="flex gap-0.5 self-center items-center h-full translate-y-[0.5px]">
-										{#each item.model?.info?.meta.tags as tag}
-											<Tooltip content={tag.name}>
-												<div
-													class=" text-xs font-bold px-1 rounded-sm uppercase line-clamp-1 bg-gray-500/20 text-gray-700 dark:text-gray-200"
-												>
-													{tag.name}
-												</div>
-											</Tooltip>
-										{/each}
-									</div>
-								{/if}
-							</div>
-						</div>
-
-						{#if value === item.value}
-							<div class="ml-auto pl-2 pr-2 md:pr-0">
-								<Check />
-							</div>
-						{/if}
-					</button>
+					/>
 				{:else}
 					<div class="">
 						<div class="block px-3 py-2 text-sm text-gray-700 dark:text-gray-100">
@@ -696,29 +556,7 @@
 					>
 						<div class="flex">
 							<div class="-ml-2 mr-2.5 translate-y-0.5">
-								<svg
-									class="size-4"
-									viewBox="0 0 24 24"
-									fill="currentColor"
-									xmlns="http://www.w3.org/2000/svg"
-									><style>
-										.spinner_ajPY {
-											transform-origin: center;
-											animation: spinner_AtaB 0.75s infinite linear;
-										}
-										@keyframes spinner_AtaB {
-											100% {
-												transform: rotate(360deg);
-											}
-										}
-									</style><path
-										d="M12,1A11,11,0,1,0,23,12,11,11,0,0,0,12,1Zm0,19a8,8,0,1,1,8-8A8,8,0,0,1,12,20Z"
-										opacity=".25"
-									/><path
-										d="M10.14,1.16a11,11,0,0,0-9,8.92A1.59,1.59,0,0,0,2.46,12,1.52,1.52,0,0,0,4.11,10.7a8,8,0,0,1,6.66-6.61A1.42,1.42,0,0,0,12,2.69h0A1.57,1.57,0,0,0,10.14,1.16Z"
-										class="spinner_ajPY"
-									/></svg
-								>
+								<Spinner />
 							</div>
 
 							<div class="flex flex-col self-start">

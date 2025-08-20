@@ -1,19 +1,16 @@
-import { browser, dev } from '$app/environment';
-// import { version } from '../../package.json';
-import { base } from '$app/paths';
+import { webUIConfig, WEBUI_BASE_URL, WEBUI_HOSTNAME, WEBUI_HOSTNAME_PATH } from './config.js';
 
 export const APP_NAME = 'Open WebUI';
 
-export const WEBUI_HOSTNAME = browser ? (dev ? `${location.hostname}:8080` : ``) : '';
-export const WEBUI_HOSTNAME_PATH = base;
-export const WEBUI_BASE_URL = `${WEBUI_HOSTNAME}${WEBUI_HOSTNAME_PATH}`;
-export const WEBUI_API_BASE_URL = `${WEBUI_BASE_URL}/api/v1`;
+// 使用配置系统获取URL
+export { WEBUI_BASE_URL, WEBUI_HOSTNAME, WEBUI_HOSTNAME_PATH };
+export const WEBUI_API_BASE_URL = webUIConfig.getApiUrl('api/v1');
 
-export const OLLAMA_API_BASE_URL = `${WEBUI_BASE_URL}/ollama`;
-export const OPENAI_API_BASE_URL = `${WEBUI_BASE_URL}/openai`;
-export const AUDIO_API_BASE_URL = `${WEBUI_BASE_URL}/api/v1/audio`;
-export const IMAGES_API_BASE_URL = `${WEBUI_BASE_URL}/api/v1/images`;
-export const RETRIEVAL_API_BASE_URL = `${WEBUI_BASE_URL}/api/v1/retrieval`;
+export const OLLAMA_API_BASE_URL = webUIConfig.getApiUrl('ollama');
+export const OPENAI_API_BASE_URL = webUIConfig.getApiUrl('openai');
+export const AUDIO_API_BASE_URL = webUIConfig.getApiUrl('api/v1/audio');
+export const IMAGES_API_BASE_URL = webUIConfig.getApiUrl('api/v1/images');
+export const RETRIEVAL_API_BASE_URL = webUIConfig.getApiUrl('api/v1/retrieval');
 
 export const WEBUI_VERSION = APP_VERSION;
 export const WEBUI_BUILD_HASH = APP_BUILD_HASH;
