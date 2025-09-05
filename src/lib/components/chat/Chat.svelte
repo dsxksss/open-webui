@@ -76,9 +76,11 @@
 		chatAction,
 		generateMoACompletion,
 		stopTask,
-		getTaskIdsByChatId
+		getTaskIdsByChatId,
+		getModels
 	} from '$lib/apis';
 	import { getTools } from '$lib/apis/tools';
+	import { webUIConfig } from '$lib/config';
 
 	import Banner from '../common/Banner.svelte';
 	import MessageInput from '$lib/components/chat/MessageInput.svelte';
@@ -181,6 +183,40 @@
 				await goto(WEBUI_BASE_URL + '/');
 			}
 		})();
+	}
+
+	// 监听模型列表变化，并重新处理URL参数
+	let urlParamProcessed = false; // 防止重复处理URL参数
+	let previousModelsLength = 0; // 记录之前的模型数量
+	
+	$: if ($models && $models.length > 0 && $models.length !== previousModelsLength) {
+		// 只有当模型数量实际发生变化时才执行
+		previousModelsLength = $models.length;
+		
+		if (!urlParamProcessed) {
+			console.log('Models updated, count:', $models.length);
+			console.log('Current path:', $page.url.pathname);
+			console.log('Current selectedModels:', selectedModels);
+			
+			// 检查是否有URL参数需要处理
+			const urlModelParam = $page.url.searchParams.get('models') || $page.url.searchParams.get('model');
+			if (urlModelParam && (selectedModels.length === 0 || selectedModels[0] === '')) {
+				console.log('Processing URL parameter after models loaded:', urlModelParam);
+				const foundModel = $models.find(m => m.id === urlModelParam);
+				if (foundModel) {
+					console.log('Found model after loading:', foundModel);
+					selectedModels = [urlModelParam];
+					console.log('Updated selectedModels from URL param:', selectedModels);
+					urlParamProcessed = true; // 标记为已处理
+				} else {
+					console.log('Model not found in loaded models:', urlModelParam);
+					console.log('Available models:', $models.map(m => m.id));
+				}
+			} else {
+				// 如果没有URL参数，也标记为已处理，避免后续重复执行
+				urlParamProcessed = true;
+			}
+		}
 	}
 
 	$: if (selectedModels && chatIdProp !== '') {
@@ -395,9 +431,22 @@
 
 	const onMessageHandler = async (event: {
 		origin: string;
-		data: { type: string; text: string };
+		data: { type: string; text: string; source?: string };
 	}) => {
 		if (event.origin !== window.origin) {
+			return;
+		}
+
+		// 忽略来自 Grammarly 或其他浏览器扩展的消息
+		if (event.data?.source === 'grammarly' || 
+			event.data?.source === 'react-devtools-content-script' || 
+			event.data?.source === 'react-devtools-bridge' ||
+			event.data?.source === 'react-devtools-hook') {
+			return;
+		}
+
+		// 确保数据不是空对象且有实际内容
+		if (!event.data || Object.keys(event.data).length === 0 || event.data.hello) {
 			return;
 		}
 
@@ -708,6 +757,23 @@
 	//////////////////////////
 
 	const initNewChat = async () => {
+		console.log('=== initNewChat called ===');
+		console.log('Current URL:', $page.url.href);
+		console.log('URL searchParams models:', $page.url.searchParams.get('models'));
+		console.log('URL searchParams model:', $page.url.searchParams.get('model'));
+		console.log('Config default_models:', $config?.default_models);
+		console.log('Settings models:', $settings?.models);
+		console.log('Available models at start:', $models.map(m => ({ id: m.id, name: m.name, base_model_id: m.base_model_id })));
+		console.log('Current selectedModels before processing:', selectedModels);
+			
+		// 调试API配置
+		console.log('WEBUI_API_BASE_URL:', webUIConfig.getApiUrl('api/v1'));
+		console.log('Browser window config:', {
+			__PUBLIC_BASE_URL__: (window as any).__PUBLIC_BASE_URL__,
+			__PUBLIC_API_BASE_URL__: (window as any).__PUBLIC_API_BASE_URL__,
+			__PUBLIC_ENV__: (window as any).__PUBLIC_ENV__
+		});
+		
 		const availableModels = $models
 			.filter((m) => !(m?.info?.meta?.hidden ?? false))
 			.map((m) => m.id);
@@ -718,10 +784,18 @@
 				$page.url.searchParams.get('model') ||
 				''
 			)?.split(',');
+			
+			console.log('URL models to process:', urlModels);
 
 			if (urlModels.length === 1) {
-				const m = $models.find((m) => m.id === urlModels[0]);
+				const modelId = urlModels[0];
+				console.log('Looking for single model:', modelId);
+				
+				const m = $models.find((m) => m.id === modelId);
+				console.log('Found model in list:', m ? { id: m.id, name: m.name, base_model_id: m.base_model_id } : 'NOT FOUND');
+				
 				if (!m) {
+					console.log('Model not found, triggering model selector');
 					const modelSelectorButton = document.getElementById('model-selector-0-button');
 					if (modelSelectorButton) {
 						modelSelectorButton.click();
@@ -735,15 +809,22 @@
 						}
 					}
 				} else {
+					console.log('Setting selectedModels to:', urlModels);
 					selectedModels = urlModels;
 				}
 			} else {
+				console.log('Multiple models, setting selectedModels to:', urlModels);
 				selectedModels = urlModels;
 			}
 
+			console.log('Before filtering - selectedModels:', selectedModels);
+			console.log('Available model IDs:', $models.map((m) => m.id));
+			
 			selectedModels = selectedModels.filter((modelId) =>
 				$models.map((m) => m.id).includes(modelId)
 			);
+			
+			console.log('After filtering - selectedModels:', selectedModels);
 		} else {
 			if (sessionStorage.selectedModels) {
 				selectedModels = JSON.parse(sessionStorage.selectedModels);
@@ -843,6 +924,43 @@
 		selectedModels = selectedModels.map((modelId) =>
 			$models.map((m) => m.id).includes(modelId) ? modelId : ''
 		);
+		
+		console.log('Final selectedModels before refresh:', selectedModels);
+
+		// 强制刷新模型列表以确保包含工作空间自定义模型
+		try {
+			console.log('Refreshing models list to include workspace custom models...');
+			const refreshedModels = await getModels(
+				localStorage.token,
+				$config?.features?.enable_direct_connections && ($settings?.directConnections ?? null)
+			);
+			models.set(refreshedModels);
+			console.log('Models refreshed:', refreshedModels.map(m => ({ id: m.id, name: m.name, base_model_id: m.base_model_id })));
+			
+			// 检查刷新后URL参数模型是否存在
+			if ($page.url.searchParams.get('models') || $page.url.searchParams.get('model')) {
+				const urlModelId = $page.url.searchParams.get('models') || $page.url.searchParams.get('model');
+				const foundAfterRefresh = refreshedModels.find(m => m.id === urlModelId);
+				console.log(`After refresh, model '${urlModelId}' found:`, foundAfterRefresh ? { id: foundAfterRefresh.id, name: foundAfterRefresh.name, base_model_id: foundAfterRefresh.base_model_id } : 'NOT FOUND');
+				
+				if (foundAfterRefresh && (selectedModels.length === 0 || selectedModels[0] === '')) {
+					console.log('Setting selectedModels to URL model after refresh:', [urlModelId]);
+					selectedModels = [urlModelId];
+				}
+			}
+		} catch (error) {
+			console.error('Failed to refresh models:', error);
+		}
+		
+		console.log('=== Final selectedModels after initNewChat ===:', selectedModels);
+	
+	// 强制触发selectedModels的响应式更新
+	if (selectedModels && selectedModels.length > 0 && selectedModels[0] !== '') {
+		console.log('Triggering selectedModels update for UI components');
+		selectedModels = [...selectedModels]; // 触发响应式更新
+	}
+	
+	console.log('=== initNewChat completed ===');
 
 		const userSettings = await getUserSettings(localStorage.token);
 
@@ -1341,11 +1459,22 @@
 
 	const submitPrompt = async (userPrompt, { _raw = false } = {}) => {
 		console.log('submitPrompt', userPrompt, $chatId);
+		console.log('Current selectedModels:', selectedModels);
+		
+		// 查找是否存在用户的自定义模型
+		const customModel = $models.find(m => m.id === 'test');
+		if (customModel) {
+			console.log('Custom model "test" is available:', customModel.name);
+		} else {
+			console.log('Custom model "test" not found in models list');
+		}
 
 		const messages = createMessagesList(history, history.currentId);
-		const _selectedModels = selectedModels.map((modelId) =>
-			$models.map((m) => m.id).includes(modelId) ? modelId : ''
-		);
+		const _selectedModels = selectedModels.map((modelId) => {
+			const modelExists = $models.map((m) => m.id).includes(modelId);
+			console.log(`Model "${modelId}" exists in models list:`, modelExists);
+			return modelExists ? modelId : '';
+		});
 		if (JSON.stringify(selectedModels) !== JSON.stringify(_selectedModels)) {
 			selectedModels = _selectedModels;
 		}

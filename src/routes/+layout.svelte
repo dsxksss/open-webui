@@ -67,38 +67,44 @@
 	const BREAKPOINT = 768;
 
 	const setupSocket = async (enableWebsocket) => {
-		const _socket = io(`${WEBUI_HOSTNAME}` || undefined, {
+		const socketUrl = `${WEBUI_HOSTNAME}` || window.location.origin;
+		console.log('Setting up WebSocket connection to:', socketUrl);
+		
+		const _socket = io(socketUrl, {
 			reconnection: true,
 			reconnectionDelay: 1000,
 			reconnectionDelayMax: 5000,
 			randomizationFactor: 0.5,
 			path: WEBUI_HOSTNAME_PATH + '/ws/socket.io',
 			transports: enableWebsocket ? ['websocket'] : ['polling', 'websocket'],
-			auth: { token: localStorage.token }
+			auth: { token: localStorage.token },
+			timeout: 20000 // 增加连接超时时间
 		});
 
 		await socket.set(_socket);
 
 		_socket.on('connect_error', (err) => {
-			console.log('connect_error', err);
+			console.log('WebSocket connect_error:', err);
+			console.log('Socket URL:', socketUrl);
+			console.log('Socket Path:', WEBUI_HOSTNAME_PATH + '/ws/socket.io');
 		});
 
 		_socket.on('connect', () => {
-			console.log('connected', _socket.id);
+			console.log('WebSocket connected successfully:', _socket.id);
 		});
 
 		_socket.on('reconnect_attempt', (attempt) => {
-			console.log('reconnect_attempt', attempt);
+			console.log('WebSocket reconnect_attempt:', attempt);
 		});
 
 		_socket.on('reconnect_failed', () => {
-			console.log('reconnect_failed');
+			console.log('WebSocket reconnect_failed');
 		});
 
 		_socket.on('disconnect', (reason, details) => {
-			console.log(`Socket ${_socket.id} disconnected due to ${reason}`);
+			console.log(`WebSocket ${_socket.id} disconnected due to ${reason}`);
 			if (details) {
-				console.log('Additional details:', details);
+				console.log('Disconnect details:', details);
 			}
 		});
 	};
@@ -557,7 +563,7 @@
 			const browserLanguages = navigator.languages
 				? navigator.languages
 				: [navigator.language || navigator.userLanguage];
-			const lang = backendConfig.default_locale
+			const lang = backendConfig?.default_locale
 				? backendConfig.default_locale
 				: bestMatchingLanguage(languages, browserLanguages, 'en-US');
 			changeLanguage(lang);

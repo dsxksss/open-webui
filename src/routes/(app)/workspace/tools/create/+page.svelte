@@ -60,7 +60,30 @@
 			)
 				return;
 
-			tool = JSON.parse(event.data);
+			// 忽略来自 React DevTools 或其他扩展的消息
+			if (event.data?.source === 'react-devtools-content-script' || 
+				event.data?.source === 'react-devtools-bridge' ||
+				event.data?.source === 'react-devtools-hook') {
+				return;
+			}
+
+			// 检查 event.data 是否已经是对象
+			if (typeof event.data === 'object' && event.data !== null) {
+				// 确保数据不是空对象且有实际内容
+				if (Object.keys(event.data).length > 0 && !event.data.hello) {
+					tool = event.data;
+				}
+			} else if (typeof event.data === 'string') {
+				try {
+					tool = JSON.parse(event.data);
+				} catch (error) {
+					console.error('Failed to parse event.data as JSON:', error);
+					return;
+				}
+			} else {
+				console.error('Unexpected event.data type:', typeof event.data);
+				return;
+			}
 			console.log(tool);
 		});
 

@@ -31,8 +31,8 @@ export class WebUIConfig {
     const configuredBase = PUBLIC_BASE_URL || this.basePath || '';
     
     if (browser) {
-      // 浏览器环境：不包含hostname
-      this.hostname = '';
+      // 浏览器环境：WebSocket需要使用当前域名和端口
+      this.hostname = window.location.origin;
       this.baseUrl = configuredBase;
     } else {
       // 服务器环境

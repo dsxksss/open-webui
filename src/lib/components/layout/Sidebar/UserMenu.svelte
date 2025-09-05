@@ -211,6 +211,8 @@
 			</button>
 
 			{#if usage}
+				<!-- 注释掉当前在线人数组件 -->
+				<!-- 
 				{#if usage?.user_ids?.length > 0}
 					<hr class=" border-gray-100 dark:border-gray-800 my-1 p-0" />
 
@@ -245,6 +247,7 @@
 						</div>
 					</Tooltip>
 				{/if}
+				-->
 			{/if}
 
 			<!-- <DropdownMenu.Item class="flex items-center py-1.5 px-3 text-sm ">

@@ -59,6 +59,7 @@
 
 	onMount(async () => {
 		window.addEventListener('message', async (event) => {
+			// 过滤掉 React DevTools 和其他不相关的消息
 			if (
 				!['https://openwebui.com', 'https://www.openwebui.com', 'http://localhost:5173'].includes(
 					event.origin
@@ -67,13 +68,38 @@
 				return;
 			}
 
-			let data = JSON.parse(event.data);
+			// 忽略来自 React DevTools 或其他扩展的消息
+			if (event.data?.source === 'react-devtools-content-script' || 
+				event.data?.source === 'react-devtools-bridge' ||
+				event.data?.source === 'react-devtools-hook') {
+				return;
+			}
 
+			let data;
+			// 检查 event.data 是否已经是对象
+			if (typeof event.data === 'object' && event.data !== null) {
+				data = event.data;
+			} else if (typeof event.data === 'string') {
+				try {
+					data = JSON.parse(event.data);
+				} catch (error) {
+					console.error('Failed to parse event.data as JSON:', error);
+					return;
+				}
+			} else {
+				console.error('Unexpected event.data type:', typeof event.data);
+				return;
+			}
+
+			// 只有在数据有意义时才处理
 			if (data?.info) {
 				data = data.info;
 			}
 
-			model = data;
+			// 确保数据不是空对象且有实际内容
+			if (data && Object.keys(data).length > 0 && !data.hello) {
+				model = data;
+			}
 		});
 
 		if (window.opener ?? false) {

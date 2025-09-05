@@ -96,9 +96,24 @@
 								autoScroll();
 								continue;
 							} else {
-								// Parse the JSON chunk
+								// Parse the JSON chunk for askHandler
 								try {
-									const data = JSON.parse(line.slice(6));
+									// 正确提取JSON数据，移除'data: '前缀
+									let jsonData = line.substring(5).trim(); // 使用substring(5)而不是slice(6)
+									
+									// 添加数据验证
+									if (!jsonData || jsonData === '') {
+										console.warn('Empty JSON data in FloatingButtons askHandler');
+										continue;
+									}
+									
+									// 确保数据以{开头
+									if (!jsonData.startsWith('{') && !jsonData.startsWith('[')) {
+										console.warn('Invalid JSON format in FloatingButtons askHandler:', jsonData.substring(0, 50));
+										continue;
+									}
+									
+									const data = JSON.parse(jsonData);
 
 									// Append the `content` field from the "choices" object
 									if (data.choices && data.choices[0]?.delta?.content) {
@@ -107,7 +122,11 @@
 										autoScroll();
 									}
 								} catch (e) {
-									console.error(e);
+									console.error('JSON parse error in FloatingButtons askHandler:', e);
+									console.error('Problematic line:', line);
+									console.error('Attempted to parse:', line.substring(5).trim());
+									// 继续处理后续数据而不是停止整个流
+									continue;
 								}
 							}
 						}
@@ -176,9 +195,24 @@
 								autoScroll();
 								continue;
 							} else {
-								// Parse the JSON chunk
+								// Parse the JSON chunk for explainHandler
 								try {
-									const data = JSON.parse(line.slice(6));
+									// 正确提取JSON数据，移除'data: '前缀
+									let jsonData = line.substring(5).trim(); // 使用substring(5)而不是slice(6)
+									
+									// 添加数据验证
+									if (!jsonData || jsonData === '') {
+										console.warn('Empty JSON data in FloatingButtons explainHandler');
+										continue;
+									}
+									
+									// 确保数据以{开头
+									if (!jsonData.startsWith('{') && !jsonData.startsWith('[')) {
+										console.warn('Invalid JSON format in FloatingButtons explainHandler:', jsonData.substring(0, 50));
+										continue;
+									}
+									
+									const data = JSON.parse(jsonData);
 
 									// Append the `content` field from the "choices" object
 									if (data.choices && data.choices[0]?.delta?.content) {
@@ -187,7 +221,11 @@
 										autoScroll();
 									}
 								} catch (e) {
-									console.error(e);
+									console.error('JSON parse error in FloatingButtons explainHandler:', e);
+									console.error('Problematic line:', line);
+									console.error('Attempted to parse:', line.substring(5).trim());
+									// 继续处理后续数据而不是停止整个流
+									continue;
 								}
 							}
 						}

@@ -67,7 +67,20 @@
 			)
 				return;
 
-			func = JSON.parse(event.data);
+			// 检查 event.data 是否已经是对象
+			if (typeof event.data === 'object' && event.data !== null) {
+				func = event.data;
+			} else if (typeof event.data === 'string') {
+				try {
+					func = JSON.parse(event.data);
+				} catch (error) {
+					console.error('Failed to parse event.data as JSON:', error);
+					return;
+				}
+			} else {
+				console.error('Unexpected event.data type:', typeof event.data);
+				return;
+			}
 			console.log(func);
 		});
 

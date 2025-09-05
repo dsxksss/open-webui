@@ -132,35 +132,29 @@
 				}
 
 				try {
-					let lines = value.split('\n');
-
-					for (const line of lines) {
-						if (line !== '') {
-							console.log(line);
-							if (line === 'data: [DONE]') {
-								// responseMessage.done = true;
-								messages = messages;
-							} else {
-								let data = JSON.parse(line.replace(/^data: /, ''));
-								console.log(data);
-
-								if (responseMessage.content == '' && data.choices[0].delta.content == '\n') {
-									continue;
-								} else {
-									textareaElement.style.height = textareaElement.scrollHeight + 'px';
-
-									responseMessage.content += data.choices[0].delta.content ?? '';
-									messages = messages;
-
-									textareaElement.style.height = textareaElement.scrollHeight + 'px';
-
-									await tick();
-								}
-							}
-						}
+					const jsonData = line.replace(/^data: /, '').trim();
+					if (!jsonData || !jsonData.startsWith('{')) {
+						console.warn('Invalid JSON data in playground Chat:', jsonData);
+						continue;
 					}
-				} catch (error) {
-					console.log(error);
+					let data = JSON.parse(jsonData);
+					console.log(data);
+
+					if (responseMessage.content == '' && data.choices[0].delta.content == '\n') {
+						continue;
+					} else {
+						textareaElement.style.height = textareaElement.scrollHeight + 'px';
+
+						responseMessage.content += data.choices[0].delta.content ?? '';
+						messages = messages;
+
+						textareaElement.style.height = textareaElement.scrollHeight + 'px';
+
+						await tick();
+					}
+				} catch (parseError) {
+					console.error('JSON parse error in playground Chat:', parseError);
+					console.error('Problematic line:', line);
 				}
 
 				scrollToBottom();

@@ -6,9 +6,9 @@ import { viteStaticCopy } from 'vite-plugin-static-copy';
 // 动态创建代理配置
 function createProxyConfig() {
 	const baseUrl = process.env.PUBLIC_BASE_URL || '';
-	const backendUrl = 'http://127.0.0.1:8080';
+	const backendUrl = 'http://127.0.0.1:8280';
 	
-	const proxy = {
+	const proxy: Record<string, any> = {
 		// 默认代理（无前缀）
 		'/api': {
 			target: backendUrl,
@@ -26,6 +26,11 @@ function createProxyConfig() {
 		'/static': {
 			target: backendUrl,
 			changeOrigin: true
+		},
+		'/ws': {
+			target: backendUrl,
+			changeOrigin: true,
+			ws: true
 		}
 	};
 	
@@ -36,26 +41,33 @@ function createProxyConfig() {
 		proxy[`^${cleanBaseUrl}/api`] = {
 			target: backendUrl,
 			changeOrigin: true,
-			rewrite: (path) => path.replace(new RegExp(`^${cleanBaseUrl}`), '')
+			rewrite: (path: string) => path.replace(new RegExp(`^${cleanBaseUrl}`), '')
 		};
 		
 		proxy[`^${cleanBaseUrl}/ollama`] = {
 			target: backendUrl,
 			changeOrigin: true,
 			ws: true,
-			rewrite: (path) => path.replace(new RegExp(`^${cleanBaseUrl}`), '')
+			rewrite: (path: string) => path.replace(new RegExp(`^${cleanBaseUrl}`), '')
 		};
 		
 		proxy[`^${cleanBaseUrl}/openai`] = {
 			target: backendUrl,
 			changeOrigin: true,
-			rewrite: (path) => path.replace(new RegExp(`^${cleanBaseUrl}`), '')
+			rewrite: (path: string) => path.replace(new RegExp(`^${cleanBaseUrl}`), '')
 		};
 		
 		proxy[`^${cleanBaseUrl}/static`] = {
 			target: backendUrl,
 			changeOrigin: true,
-			rewrite: (path) => path.replace(new RegExp(`^${cleanBaseUrl}`), '')
+			rewrite: (path: string) => path.replace(new RegExp(`^${cleanBaseUrl}`), '')
+		};
+		
+		proxy[`^${cleanBaseUrl}/ws`] = {
+			target: backendUrl,
+			changeOrigin: true,
+			ws: true,
+			rewrite: (path: string) => path.replace(new RegExp(`^${cleanBaseUrl}`), '')
 		};
 	}
 	

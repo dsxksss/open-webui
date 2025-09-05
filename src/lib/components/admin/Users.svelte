@@ -6,6 +6,7 @@
 	import { user } from '$lib/stores';
 	import { page } from '$app/stores';
 	import { WEBUI_BASE_URL } from '$lib/constants';
+	import { getUsers } from '$lib/apis/users';
 
 	import UserList from './Users/UserList.svelte';
 	import Groups from './Users/Groups.svelte';
@@ -32,6 +33,7 @@
 	};
 
 	let loaded = false;
+	let users;
 
 	onMount(async () => {
 		if ($user?.role !== 'admin') {

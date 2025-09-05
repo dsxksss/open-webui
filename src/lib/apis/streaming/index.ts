@@ -59,8 +59,22 @@ async function* openAIStreamToIterator(
 		}
 
 		try {
-			const parsedData = JSON.parse(data);
-			console.log(parsedData);
+			// 添加额外的数据清理和验证
+			if (!data || data.trim() === '') {
+				continue;
+			}
+
+			// EventSourceParserStream已经解析了SSE格式，data已经是纯JSON
+			let cleanData = data.trim();
+			
+			// 检查是否是有效的JSON字符串
+			if (!cleanData.startsWith('{') && !cleanData.startsWith('[')) {
+				console.warn('Received non-JSON data:', cleanData.substring(0, 100));
+				continue;
+			}
+
+			const parsedData = JSON.parse(cleanData);
+			// console.log(parsedData); // 移除调试输出避免污染控制台
 
 			if (parsedData.error) {
 				yield { done: true, value: '', error: parsedData.error };
@@ -87,7 +101,12 @@ async function* openAIStreamToIterator(
 				value: parsedData.choices?.[0]?.delta?.content ?? ''
 			};
 		} catch (e) {
-			console.error('Error extracting delta from SSE event:', e);
+			console.error('Error parsing JSON from SSE event:', e);
+			console.error('Problematic data (first 200 chars):', data.substring(0, 200));
+			console.error('Data type:', typeof data);
+			
+			// 继续处理下一个事件，而不是停止整个流
+			continue;
 		}
 	}
 }
